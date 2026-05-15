@@ -1,0 +1,12 @@
+servicios de red para moodificar la ip nedt-tools
+sudo apt install net-tools
+
+comandos de instalacion apache2
+sudo apt install apache2 -y
+verificar funcionamiento
+sudo systemctl status apache2
+
+comando de instalacion mariadb
+sudo apt install mariadb-server -y
+verificar funcionamiento
+sudo systemctl status mariadb --no-pager
