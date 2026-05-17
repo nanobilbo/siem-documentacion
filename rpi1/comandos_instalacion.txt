@@ -1,12 +1,148 @@
-servicios de red para moodificar la ip nedt-tools
-sudo apt install net-tools
+========================================
+RPi2 - VÍCTIMA VULNERABLE (DVWA)
+UBUNTU SERVER 25.10
+IP: 192.168.1.20
+========================================
 
-comandos de instalacion apache2
+========================================
+PASO 1: ACTUALIZAR SISTEMA
+========================================
+
+sudo apt update
+sudo apt upgrade -y
+
+========================================
+PASO 2: INSTALAR APACHE2
+========================================
+
 sudo apt install apache2 -y
-verificar funcionamiento
-sudo systemctl status apache2
+sudo systemctl status apache2 --no-pager
 
-comando de instalacion mariadb
+# Verificar desde navegador:
+http://192.168.1.20
+
+========================================
+PASO 3: INSTALAR MARIADB (BASE DE DATOS)
+========================================
+
 sudo apt install mariadb-server -y
-verificar funcionamiento
 sudo systemctl status mariadb --no-pager
+sudo systemctl enable mariadb
+
+========================================
+PASO 4: INSTALAR PHP BASE
+========================================
+
+sudo apt install php libapache2-mod-php -y
+php -v
+
+========================================
+PASO 5: INSTALAR EXTENSIONES PHP
+========================================
+
+sudo apt install php-mysqli -y
+sudo apt install php-gd php-xml php-mbstring php-curl -y
+
+========================================
+PASO 6: REINICIAR APACHE
+========================================
+
+sudo systemctl restart apache2
+
+========================================
+PASO 7: VERIFICAR PHP (OPCIONAL)
+========================================
+
+echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/test.php
+
+# Verificar desde navegador:
+http://192.168.1.20/test.php
+
+========================================
+PASO 8: INSTALAR GIT
+========================================
+
+sudo apt install git -y
+
+========================================
+PASO 9: DESCARGAR DVWA
+========================================
+
+cd /var/www/html
+sudo git clone https://github.com/digininja/DVWA.git dvwa
+sudo chown -R www-data:www-data dvwa
+
+========================================
+PASO 10: CONFIGURAR DVWA
+========================================
+
+cd /var/www/html/dvwa/config
+sudo cp config.inc.php.dist config.inc.php
+sudo nano config.inc.php
+
+# Modificar estas líneas:
+$_DVWA[ 'db_server' ]   = 'localhost';
+$_DVWA[ 'db_database' ] = 'dvwa';
+$_DVWA[ 'db_user' ]     = 'dvwa';
+$_DVWA[ 'db_password' ] = 'p@ssw0rd';
+$_DVWA[ 'db_port' ] = '3306';
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+
+========================================
+PASO 11: CONFIGURAR PERMISOS
+========================================
+
+sudo chmod 777 /var/www/html/dvwa/hackable/uploads/
+sudo chmod 777 /var/www/html/dvwa/config/
+
+========================================
+PASO 12: CONFIGURAR PHP PARA DVWA
+========================================
+
+sudo nano /etc/php/*/apache2/php.ini
+
+# Buscar y cambiar:
+allow_url_include = Off  →  allow_url_include = On
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+sudo systemctl restart apache2
+
+========================================
+PASO 13: CREAR BASE DE DATOS
+========================================
+
+sudo mysql
+
+# Dentro de MySQL ejecutar:
+CREATE DATABASE dvwa;
+CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
+GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+========================================
+PASO 14: VERIFICAR INSTALACIÓN
+========================================
+
+# Desde navegador:
+http://192.168.1.20/dvwa/setup.php
+# Hacer clic en "Create / Reset Database"
+
+http://192.168.1.20/dvwa/login.php
+# Usuario: admin
+# Contraseña: password
+
+# Una vez dentro:
+DVWA Security → Security Level: Low → Submit
+
+========================================
+RESUMEN DE SERVICIOS ACTIVOS
+========================================
+
+sudo systemctl status apache2 --no-pager
+sudo systemctl status mariadb --no-pager
+
+========================================
+FIN DE LA CONFIGURACIÓN
+========================================
