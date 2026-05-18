@@ -1,0 +1,145 @@
+========================================
+RPi1 - SENSOR IDS (SURICATA)
+UBUNTU SERVER 24.04 LTS
+========================================
+
+========================================
+PASO 1: ACTUALIZAR SISTEMA
+========================================
+
+sudo apt update && sudo apt upgrade -y
+
+========================================
+PASO 2: INSTALAR HERRAMIENTAS BÁSICAS
+========================================
+
+sudo apt install net-tools curl wget git build-essential -y
+
+========================================
+PASO 3: VERIFICAR INTERFACES DE RED
+========================================
+
+ip a
+# Anotar nombre de interfaz Ethernet (normalmente eth0)
+
+========================================
+PASO 4: AGREGAR REPOSITORIO DE SURICATA
+========================================
+
+sudo add-apt-repository ppa:oisf/suricata-stable -y
+sudo apt update
+
+========================================
+PASO 5: INSTALAR SURICATA
+========================================
+
+sudo apt install suricata -y
+
+========================================
+PASO 6: VERIFICAR INSTALACIÓN
+========================================
+
+suricata --version
+sudo systemctl status suricata --no-pager
+
+========================================
+PASO 7: DESCARGAR REGLAS
+========================================
+
+sudo suricata-update
+
+========================================
+PASO 8: CONFIGURAR SURICATA
+========================================
+
+sudo nano /etc/suricata/suricata.yaml
+
+# MODIFICAR ESTAS LÍNEAS:
+
+# Configurar interfaz a monitorizar (af-packet)
+af-packet:
+  - interface: eth0
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+
+# Asegurar que eve-log está activado
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+        - http
+        - dns
+        - tls
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+
+========================================
+PASO 9: VALIDAR CONFIGURACIÓN
+========================================
+
+sudo suricata -T -c /etc/suricata/suricata.yaml
+
+# Debería mostrar: "Configuration provided was successfully loaded."
+
+========================================
+PASO 10: INICIAR SURICATA
+========================================
+
+sudo systemctl stop suricata
+sudo systemctl start suricata
+sudo systemctl enable suricata
+sudo systemctl status suricata --no-pager
+
+========================================
+PASO 11: VERIFICAR CAPTURA DE TRÁFICO
+========================================
+
+# Ver logs en tiempo real
+sudo tail -f /var/log/suricata/eve.json
+
+# Si ves salida JSON (estadísticas o alertas) → FUNCIONA
+# Salir: Ctrl+C
+
+========================================
+PASO 12: CREAR DIRECTORIO DE LOGS (para ELK)
+========================================
+
+sudo mkdir -p /var/log/suricata
+sudo chmod 755 /var/log/suricata
+
+========================================
+RESUMEN DE SERVICIOS ACTIVOS
+========================================
+
+sudo systemctl status suricata --no-pager
+
+# Ver logs guardados
+ls -la /var/log/suricata/
+
+========================================
+COMANDOS ÚTILES PARA SURICATA
+========================================
+
+# Probar configuración
+sudo suricata -T -c /etc/suricata/suricata.yaml
+
+# Actualizar reglas
+sudo suricata-update
+
+# Reiniciar servicio
+sudo systemctl restart suricata
+
+# Ver logs de alertas específicas
+sudo cat /var/log/suricata/eve.json | jq 'select(.event_type=="alert")'
+
+# Ver estadísticas
+sudo cat /var/log/suricata/eve.json | jq 'select(.event_type=="stats")'
+
+========================================
+FIN DE LA CONFIGURACIÓN
+========================================
