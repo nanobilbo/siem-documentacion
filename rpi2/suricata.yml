@@ -1,0 +1,22 @@
+# Interfaz de red a monitorizar
+af-packet:
+  - interface: eth0
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+
+# Modo IDS (no bloquea, solo detecta)
+# (Por defecto ya está en modo IDS)
+
+# Configuración de logs (asegurar que eve-log está activado)
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      types:
+        - alert
+        - http
+        - dns
+        - tls
