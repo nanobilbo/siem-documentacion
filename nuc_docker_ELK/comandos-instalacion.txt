@@ -1,0 +1,200 @@
+========================================
+NUC - SERVIDOR SIEM (PROXMOX + ELK STACK)
+========================================
+
+========================================
+PARTE 1: CREAR VM UBUNTU EN PROXMOX
+========================================
+
+# En Proxmox Web UI (https://192.168.1.131:8006)
+
+1. Botón "Create VM"
+2. General: ID=100, Nombre=siem-elk
+3. OS: Seleccionar ISO de Ubuntu Server 22.04/24.04
+4. System: Por defecto (SeaBIOS)
+5. Hard Disk: 40 GB
+6. CPU: 2-4 cores
+7. Memory: 4096 MB (mínimo 4GB)
+8. Network: Bridge vmbr0, Model VirtIO
+9. Confirmar
+
+# Instalar Ubuntu Server en la VM
+# Configurar IP estática durante instalación:
+- IP: 192.168.1.100
+- Máscara: 255.255.255.0
+- Gateway: 192.168.1.1
+
+========================================
+PARTE 2: INSTALAR DOCKER
+========================================
+
+# Conectarse a la VM
+ssh usuario@192.168.1.100
+
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar dependencias
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Añadir clave GPG de Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Añadir repositorio
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Instalar Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Agregar usuario al grupo docker
+sudo usermod -aG docker $USER
+
+# Verificar
+docker --version
+
+# CERRAR SESIÓN Y VOLVER A ENTRAR
+exit
+ssh usuario@192.168.1.100
+
+========================================
+PARTE 3: CREAR Y CONFIGURAR ELK STACK
+========================================
+
+# Crear estructura de directorios
+mkdir ~/elk && cd ~/elk
+
+# Crear docker-compose.yml
+nano docker-compose.yml
+
+# CONTENIDO:
+--------------------------------------------------
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - elk-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: logstash
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+    environment:
+      - LS_JAVA_OPTS=-Xmx1g -Xms1g
+    networks:
+      - elk-network
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - elk-network
+    depends_on:
+      - elasticsearch
+
+networks:
+  elk-network:
+    driver: bridge
+
+volumes:
+  elasticsearch-data:
+    driver: local
+--------------------------------------------------
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+
+# Crear logstash.conf
+nano logstash.conf
+
+# CONTENIDO:
+--------------------------------------------------
+input {
+  tcp {
+    port => 5000
+    codec => json_lines
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["elasticsearch:9200"]
+    index => "suricata-%{+YYYY.MM.dd}"
+  }
+  stdout { codec => rubydebug }
+}
+--------------------------------------------------
+
+# Guardar: Ctrl+O, Enter, Ctrl+X
+
+========================================
+PARTE 4: LEVANTAR EL STACK
+========================================
+
+docker compose up -d
+
+# Verificar contenedores
+docker ps
+
+# Verificar Elasticsearch
+curl http://localhost:9200
+
+========================================
+PARTE 5: VERIFICAR ACCESOS
+========================================
+
+# Desde PC navegador:
+# Kibana: http://192.168.1.100:5601
+# Debería aparecer "Welcome to Elastic"
+
+========================================
+COMANDOS ÚTILES DE MANTENIMIENTO
+========================================
+
+# Ver logs de un contenedor
+docker logs elasticsearch
+docker logs logstash
+docker logs kibana
+
+# Detener el stack
+docker compose down
+
+# Reiniciar el stack
+docker compose restart
+
+# Ver volúmenes
+docker volume ls
+
+# Ver espacio usado por Docker
+docker system df
+
+# Backup del volumen de datos
+docker run --rm -v elk_elasticsearch-data:/data -v $(pwd):/backup alpine tar czf /backup/elasticsearch-backup.tar.gz /data
+
+========================================
+FIN DE LA CONFIGURACIÓN
+========================================
